@@ -1,5 +1,8 @@
 # $Id$
-Version 0.5.0-beta (latest)
+Version 0.5.1-LE
+* Revert DNS TXT record change so ldap schema change is not needed
+
+Version 0.5.0-beta 
 * BACKWARD COMPATIBILITY BREAK: DNS TXT records now store their data in the new
   DNStxt attribute instead of the old DNScname attribute.  You must manually
   update any DNS TXT records for them to continue working.
