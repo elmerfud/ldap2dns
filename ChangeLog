@@ -1,6 +1,10 @@
 # $Id$
 Version 0.5.1-LE
 * Revert DNS TXT record change so ldap schema change is not needed
+* LE specific enhancements
+  TinyDNS lets us have specific zones will only respond from defined recursors
+  Records with TTL set to zero are considered disabled
+  Allow larger record size
 
 Version 0.5.0-beta 
 * BACKWARD COMPATIBILITY BREAK: DNS TXT records now store their data in the new

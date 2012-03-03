@@ -41,7 +41,7 @@
 #define MAXHOSTS 10
 #define DEF_SEARCHTIMEOUT 40
 #define DEF_RECLIMIT LDAP_NO_LIMIT
-#define MAX_DOMAIN_LEN 256
+#define MAX_DOMAIN_LEN 512
 
 static char tinydns_textfile[256];
 static char tinydns_texttemp[256];
@@ -106,7 +106,7 @@ struct resourcerecord
 	char type[16];
 	char ipaddr[256][80];
 	char cipaddr[80];
-	char cname[64];
+	char cname[MAX_DOMAIN_LEN];
 	char ttl[12];
 	char timestamp[20];
 	char preference[12];
@@ -585,27 +585,41 @@ static void write_rr(struct resourcerecord* rr, int ipdx, int znix)
 	char *p;
 	int i;
 	int res;
+	char zone[2];
 	unsigned char in6addr[sizeof(struct in6_addr)];
 
 	if (strcasecmp(rr->class, "IN"))
 		return;
+	/* LE ENHANCEMENT
+	 * Records with a TTL of 0 are considered 'disabled' 
+	 */
+	if(strcmp(rr->ttl,"0") == 0)
+		return;
+	/* LE ENHANCEMENT
+	 * Treat this domain as special.  We don't want to return results except from 
+	 * specific sources.
+	 */
+	if(strstr(rr->dnsdomainname, "clients.ava.lightedge.com") != NULL)
+		sprintf(zone, "in");
+	else
+		zone[0] = '\0';
 	if (strcasecmp(rr->type, "NS")==0) {
 		if (tinyfile) {
 			if (znix==0) {
 				if (ipdx<=0 && rr->cipaddr[0]) {
-					fprintf(tinyfile, "&%s::%s:%s:%s:%s\n", rr->dnsdomainname, rr->cname, rr->ttl, rr->timestamp, rr->location);
+					fprintf(tinyfile, "&%s::%s:%s:%s:%s%s\n", rr->dnsdomainname, rr->cname, rr->ttl, rr->timestamp, rr->location, zone);
 					if (rr->cname[0])
-						fprintf(tinyfile, "=%s:%s:%s:%s:%s\n", rr->cname, rr->cipaddr, rr->ttl, rr->timestamp, rr->location);
+						fprintf(tinyfile, "=%s:%s:%s:%s:%s%s\n", rr->cname, rr->cipaddr, rr->ttl, rr->timestamp, rr->location, zone);
 					if (ipdx==0)
-						fprintf(tinyfile, "+%s:%s:%s:%s:%s\n", rr->cname, rr->ipaddr[0], rr->ttl, rr->timestamp, rr->location);
+						fprintf(tinyfile, "+%s:%s:%s:%s:%s%s\n", rr->cname, rr->ipaddr[0], rr->ttl, rr->timestamp, rr->location, zone);
 				} else if (ipdx<0)
-					fprintf(tinyfile, "&%s::%s:%s:%s:%s\n", rr->dnsdomainname, rr->cname, rr->ttl, rr->timestamp, rr->location);
+					fprintf(tinyfile, "&%s::%s:%s:%s:%s%s\n", rr->dnsdomainname, rr->cname, rr->ttl, rr->timestamp, rr->location, zone);
 				else if (ipdx==0)
-					fprintf(tinyfile, "&%s:%s:%s:%s:%s:%s\n", rr->dnsdomainname, rr->ipaddr[0], rr->cname, rr->ttl, rr->timestamp, rr->location);
+					fprintf(tinyfile, "&%s:%s:%s:%s:%s:%s%s\n", rr->dnsdomainname, rr->ipaddr[0], rr->cname, rr->ttl, rr->timestamp, rr->location, zone);
 				else if (ipdx>0 && rr->cname[0])
-					fprintf(tinyfile, "+%s:%s:%s:%s:%s\n", rr->cname, rr->ipaddr[ipdx], rr->ttl, rr->timestamp, rr->location);
+					fprintf(tinyfile, "+%s:%s:%s:%s:%s%s\n", rr->cname, rr->ipaddr[ipdx], rr->ttl, rr->timestamp, rr->location, zone);
 			} else if (ipdx<=0) {
-				fprintf(tinyfile, "&%s::%s:%s:%s:%s\n", rr->dnsdomainname, rr->cname, rr->ttl, rr->timestamp, rr->location);
+				fprintf(tinyfile, "&%s::%s:%s:%s:%s%s\n", rr->dnsdomainname, rr->cname, rr->ttl, rr->timestamp, rr->location, zone);
 			}
 		}
 		if (namedzone) {
@@ -617,19 +631,19 @@ static void write_rr(struct resourcerecord* rr, int ipdx, int znix)
 		if (tinyfile) {
 			if (znix==0) {
 				if (ipdx<=0 && rr->cipaddr[0]) {
-					fprintf(tinyfile, "@%s::%s:%s:%s:%s:%s\n", rr->dnsdomainname, rr->cname, rr->preference, rr->ttl, rr->timestamp, rr->location);
+					fprintf(tinyfile, "@%s::%s:%s:%s:%s:%s%s\n", rr->dnsdomainname, rr->cname, rr->preference, rr->ttl, rr->timestamp, rr->location, zone);
 					if (rr->cname[0])
-						fprintf(tinyfile, "=%s:%s:%s:%s:%s\n", rr->cname, rr->cipaddr, rr->ttl, rr->timestamp, rr->location);
+						fprintf(tinyfile, "=%s:%s:%s:%s:%s%s\n", rr->cname, rr->cipaddr, rr->ttl, rr->timestamp, rr->location, zone);
 					if (ipdx==0)
-						fprintf(tinyfile, "+%s:%s:%s:%s:%s\n", rr->cname, rr->ipaddr[0], rr->ttl, rr->timestamp, rr->location);
+						fprintf(tinyfile, "+%s:%s:%s:%s:%s%s\n", rr->cname, rr->ipaddr[0], rr->ttl, rr->timestamp, rr->location, zone);
 				} else if (ipdx<0)
-					fprintf(tinyfile, "@%s::%s:%s:%s:%s:%s\n", rr->dnsdomainname, rr->cname, rr->preference, rr->ttl, rr->timestamp, rr->location);
+					fprintf(tinyfile, "@%s::%s:%s:%s:%s:%s%s\n", rr->dnsdomainname, rr->cname, rr->preference, rr->ttl, rr->timestamp, rr->location, zone);
 				else if (ipdx==0)
-					fprintf(tinyfile, "@%s:%s:%s:%s:%s:%s:%s\n", rr->dnsdomainname, rr->ipaddr[0], rr->cname, rr->preference, rr->ttl, rr->timestamp, rr->location);
+					fprintf(tinyfile, "@%s:%s:%s:%s:%s:%s:%s%s\n", rr->dnsdomainname, rr->ipaddr[0], rr->cname, rr->preference, rr->ttl, rr->timestamp, rr->location, zone);
 				else if (ipdx>0 && rr->cname[0])
-					fprintf(tinyfile, "+%s:%s:%s:%s:%s\n", rr->cname, rr->ipaddr[ipdx], rr->ttl, rr->timestamp, rr->location);
+					fprintf(tinyfile, "+%s:%s:%s:%s:%s%s\n", rr->cname, rr->ipaddr[ipdx], rr->ttl, rr->timestamp, rr->location, zone);
 			} else if (ipdx<=0) {
-				fprintf(tinyfile, "@%s::%s:%s:%s:%s:%s\n", rr->dnsdomainname, rr->cname, rr->preference, rr->ttl, rr->timestamp, rr->location);
+				fprintf(tinyfile, "@%s::%s:%s:%s:%s:%s%s\n", rr->dnsdomainname, rr->cname, rr->preference, rr->ttl, rr->timestamp, rr->location, zone);
 			}
 		}
 		if (namedzone) {
@@ -640,9 +654,9 @@ static void write_rr(struct resourcerecord* rr, int ipdx, int znix)
 	} else if ( strcasecmp(rr->type, "A")==0) {
 		if (tinyfile) {
 			if (ipdx<=0 && rr->cipaddr[0])
-				fprintf(tinyfile, "%s%s:%s:%s:%s:%s\n", (znix==0 ? "=" : "+"), rr->dnsdomainname, rr->cipaddr, rr->ttl, rr->timestamp, rr->location);
+				fprintf(tinyfile, "%s%s:%s:%s:%s:%s%s\n", (znix==0 ? "=" : "+"), rr->dnsdomainname, rr->cipaddr, rr->ttl, rr->timestamp, rr->location, zone);
 			if (ipdx>=0)
-				fprintf(tinyfile, "+%s:%s:%s:%s:%s\n", rr->dnsdomainname, rr->ipaddr[ipdx], rr->ttl, rr->timestamp, rr->location);
+				fprintf(tinyfile, "+%s:%s:%s:%s:%s%s\n", rr->dnsdomainname, rr->ipaddr[ipdx], rr->ttl, rr->timestamp, rr->location, zone);
 		}
 		if (namedzone) {
 			if (ipdx<=0 && rr->cipaddr[0])
@@ -675,12 +689,12 @@ static void write_rr(struct resourcerecord* rr, int ipdx, int znix)
 			buf[ sizeof(buf) -1 ] = '\0';
 		}
 		if (tinyfile)
-			fprintf(tinyfile, "^%s:%s:%s:%s:%s\n", buf, rr->cname, rr->ttl, rr->timestamp, rr->location);
+			fprintf(tinyfile, "^%s:%s:%s:%s:%s%s\n", buf, rr->cname, rr->ttl, rr->timestamp, rr->location, zone);
 		if (namedzone)
 			fprintf(namedzone, "%s.\t%s\tIN PTR\t%s.\n", buf, rr->ttl, rr->cname);
 	} else if (strcasecmp(rr->type, "CNAME")==0) {
 		if (tinyfile)
-			fprintf(tinyfile, "C%s:%s:%s:%s:%s\n", rr->dnsdomainname, rr->cname, rr->ttl, rr->timestamp, rr->location);
+			fprintf(tinyfile, "C%s:%s:%s:%s:%s%s\n", rr->dnsdomainname, rr->cname, rr->ttl, rr->timestamp, rr->location, zone);
 		if (namedzone)
 			fprintf(namedzone, "%s.\t%s\tIN CNAME\t%s.\n", rr->dnsdomainname, rr->ttl, rr->cname);
 	} else if (strcasecmp(rr->type, "TXT")==0) {
@@ -701,7 +715,7 @@ static void write_rr(struct resourcerecord* rr, int ipdx, int znix)
 					free(spftmp); spftmp=NULL;
 				}
 			}
-			fprintf(tinyfile, "'%s:%s:%s:%s:%s\n", rr->dnsdomainname, rr->cname, rr->ttl, rr->timestamp, rr->location, zone);
+			fprintf(tinyfile, "'%s:%s:%s:%s:%s%s\n", rr->dnsdomainname, rr->cname, rr->ttl, rr->timestamp, rr->location, zone);
 		}
 		if (namedzone)
 			fprintf(namedzone, "%s.\t%s\tIN TXT\t\"%s\"\n", rr->dnsdomainname, rr->ttl, rr->txt);
@@ -716,7 +730,7 @@ static void write_rr(struct resourcerecord* rr, int ipdx, int znix)
 				tmp = p;
 			}
 			fprintf(tinyfile, "\\%03o%s", (unsigned int)strlen(tmp), tmp);
-			fprintf(tinyfile, "\\000:%s:%s:%s\n", rr->ttl, rr->timestamp, rr->location);
+			fprintf(tinyfile, "\\000:%s:%s:%s%s\n", rr->ttl, rr->timestamp, rr->location, zone);
 		}
 		if (namedzone) {
 			fprintf(namedzone, "%s.\t%s\tIN SRV\t%d\t%d\t%d\t%s.\n", rr->dnsdomainname, rr->ttl, rr->srvpriority, rr->srvweight, rr->srvport, rr->cname);
@@ -1035,6 +1049,24 @@ static void calc_checksum(int* num, int* sum)
 	ldap_msgfree(res);
 }
 
+/* This function is to insert the DNS cache servers into the zone file for
+ * internal resolution of certain zones.  Mainly, clients.ava.lightedge.com
+ */
+static void insertCacheServers(void)
+{
+	// We actually need the management IPs here, not the customer resolver IPs
+	// DSM Servers
+	fprintf(tinyfile, "%%in:216.81.128.141\n");   // nscache1.dsm
+	fprintf(tinyfile, "%%in:216.81.128.142\n");   // nscache2.dsm
+	fprintf(tinyfile, "%%in:216.81.128.132\n");   // nscache3.dsm
+	fprintf(tinyfile, "%%in:216.81.128.134\n");   // nscache4.dsm
+	// MSP Servers
+	fprintf(tinyfile, "%%in:64.247.222.5\n");     // nscache1.msp
+	fprintf(tinyfile, "%%in:64.247.222.6\n");     // nscache2.msp
+	// MLI Servers
+	fprintf(tinyfile, "%%in:64.22.192.20\n");     // nscache1.mli
+	fprintf(tinyfile, "%%in:64.22.192.21\n");     // nscache2.mli
+}
 
 static void read_dnszones(void)
 {
@@ -1046,6 +1078,10 @@ static void read_dnszones(void)
 		fprintf(tinyfile, "#\n# Automatically generated by ldap2dns v%s - DO NOT EDIT!\n#\n\n", VERSION);
 	if (namedmaster)
 		fprintf(namedmaster, "#\n# Automatically generated by ldap2dns v%s - DO NOT EDIT!\n#\n\n", VERSION);
+
+	// Insert the cache servers to lock down the internal zones
+	insertCacheServers();
+
 	if ( (ldaperr = ldap_search_ext_s(ldap_con, options.searchbase[0] ? options.searchbase : NULL, LDAP_SCOPE_SUBTREE, "objectclass=DNSzone", NULL, 0, NULL, NULL, &options.searchtimeout, options.reclimit, &res))!=LDAP_SUCCESS )
 		die_ldap(ldaperr);
 	if (ldap_count_entries(ldap_con, res) < 1) {
